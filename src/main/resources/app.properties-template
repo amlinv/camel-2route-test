@@ -1,0 +1,7 @@
+broker.url=tcp://localhost:61616
+jms.concurrent_consumers=10
+
+# This prefix will be used for Harmony request queue and individual agent services request queues
+request.queue=asn.initial
+middle.queue=asn.middle
+final.queue=asn.final

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:camel="http://camel.apache.org/schema/spring"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+                           http://camel.apache.org/schema/spring http://camel.apache.org/schema/spring/camel-spring.xsd">
+
+    <context:property-placeholder system-properties-mode="FALLBACK" />
+
+    <context:annotation-config />
+
+    <bean id="physicalConnectionFactory" class="org.apache.activemq.ActiveMQConnectionFactory">
+        <property name="brokerURL" value="${broker.url}" />
+    </bean>
+
+    <bean id="pooledConnectionFactoryIn" class="org.apache.activemq.pool.PooledConnectionFactory">
+        <property name="maxConnections" value="10"/>
+        <!--<property name=""-->
+        <property name="connectionFactory" ref="physicalConnectionFactory"/>
+        <property name="idleTimeout" value="86400000" />
+        <property name="maximumActiveSessionPerConnection" value="100" />
+    </bean>
+
+    <bean id="pooledConnectionFactoryOut" class="org.apache.activemq.pool.PooledConnectionFactory">
+        <property name="maxConnections" value="10"/>
+        <property name="connectionFactory" ref="physicalConnectionFactory"/>
+    </bean>
+
+    <bean id="jmsConfig" class="org.apache.camel.component.jms.JmsConfiguration">
+        <property name="replyToType" value="Exclusive" />
+        <property name="replyTo" value="replies" />
+        <property name="connectionFactory" ref="pooledConnectionFactoryIn" />
+        <property name="concurrentConsumers" value="${jms.concurrent_consumers}" />
+        <property name="cacheLevel" value="3" />
+        <property name="requestTimeout" value="300000" />
+        <property name="receiveTimeout" value="300000" />
+    </bean>
+
+    <bean id="jetty" class="org.apache.camel.component.jetty.JettyHttpComponent">
+        <property name="continuationTimeout" value="300000" />
+    </bean>
+
+    <bean id="amq" class="org.apache.activemq.camel.component.ActiveMQComponent">
+        <property name="configuration" ref="jmsConfig" />
+    </bean>
+
+    <!--                                      -->
+    <!-- The routes which tie it all together -->
+    <!--                                      -->
+    <camel:camelContext>
+        <camel:route id="cxfRequestRoute">
+            <camel:from uri="jetty:http://localhost:8888/jms" />
+
+            <camel:to   uri="amq:queue:requests" />
+
+            <camel:log  message="CORRELATION ID $simple{in.header.JMSCorrelationID}" loggingLevel="INFO" />
+        </camel:route>
+    </camel:camelContext>
+</beans>
